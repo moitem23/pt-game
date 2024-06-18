@@ -22,6 +22,18 @@
         #controls {
             margin-top: 20px;
         }
+        #gameIdContainer {
+            margin-top: 20px;
+        }
+        #gameId {
+            font-size: 1.2em;
+            font-weight: bold;
+        }
+        #copyButton {
+            margin-left: 10px;
+            padding: 5px 10px;
+            font-size: 1em;
+        }
     </style>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/peerjs/1.3.1/peerjs.min.js"></script>
 </head>
@@ -42,6 +54,10 @@
         <input type="text" id="joinGameId" placeholder="Enter Game ID">
         <button id="joinGame">Join Game</button>
     </div>
+    <div id="gameIdContainer" style="display: none;">
+        <span id="gameId"></span>
+        <button id="copyButton">Copy</button>
+    </div>
 
     <script>
         let peer;
@@ -54,7 +70,8 @@
         document.getElementById('createGame').addEventListener('click', () => {
             peer = new Peer();
             peer.on('open', (id) => {
-                alert('Send this ID to your friend: ' + id);
+                document.getElementById('gameId').textContent = id;
+                document.getElementById('gameIdContainer').style.display = 'block';
                 symbol = 'X';
                 myTurn = true;
                 console.log('Peer ID: ', id);
@@ -83,6 +100,15 @@
 
             conn.on('disconnected', () => {
                 console.log('Disconnected from peer.');
+            });
+        });
+
+        document.getElementById('copyButton').addEventListener('click', () => {
+            const gameId = document.getElementById('gameId').textContent;
+            navigator.clipboard.writeText(gameId).then(() => {
+                alert('Game ID copied to clipboard');
+            }).catch(err => {
+                console.error('Error copying Game ID: ', err);
             });
         });
 
