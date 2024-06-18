@@ -57,11 +57,17 @@
                 alert('Send this ID to your friend: ' + id);
                 symbol = 'X';
                 myTurn = true;
+                console.log('Peer ID: ', id);
             });
 
             peer.on('connection', (connection) => {
                 conn = connection;
                 setupConnection();
+                console.log('Connection established with second player.');
+            });
+
+            peer.on('disconnected', () => {
+                console.log('Disconnected from peer.');
             });
         });
 
@@ -72,6 +78,11 @@
             conn.on('open', () => {
                 setupConnection();
                 symbol = 'O';
+                console.log('Connected to game with ID: ', gameId);
+            });
+
+            conn.on('disconnected', () => {
+                console.log('Disconnected from peer.');
             });
         });
 
@@ -82,6 +93,7 @@
                     cells[data.index].textContent = data.symbol;
                     myTurn = true;
                     checkWinner();
+                    console.log('Received move:', data);
                 }
             });
 
@@ -94,6 +106,7 @@
                         myTurn = false;
                         conn.send({ type: 'move', index: index, symbol: symbol });
                         checkWinner();
+                        console.log('Sent move:', { type: 'move', index: index, symbol: symbol });
                     }
                 });
             });
