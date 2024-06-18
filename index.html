@@ -31,16 +31,24 @@
         }
         #controls {
             margin-top: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
         }
         #gameIdContainer {
             margin-top: 20px;
+            display: flex;
+            align-items: center;
         }
         #gameId {
             font-size: 1.2em;
             font-weight: bold;
+            margin-right: 10px;
+        }
+        #joinGameId {
+            margin-top: 10px;
         }
         #copyButton {
-            margin-left: 10px;
             padding: 5px 10px;
             font-size: 1em;
         }
@@ -54,10 +62,30 @@
             font-size: 1.5em;
             color: #ff0000;
         }
+        .win-cell {
+            background-color: green;
+            color: white;
+        }
     </style>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/peerjs/1.3.1/peerjs.min.js"></script>
 </head>
-<body> G1.2
+<body> G1.3
+    <div id="controls">
+        <button id="createGame">Create Game</button>
+        <div id="gameMode">
+            <button id="basicMode">Basic Mode</button>
+            <button id="hardMode">Hard Mode</button>
+        </div>
+        <div id="gameIdContainer" style="display: none;">
+            <input type="text" id="gameId" readonly>
+            <button id="copyButton">Copy</button>
+        </div>
+        <input type="text" id="joinGameId" placeholder="Enter Game ID">
+        <button id="joinGame">Join Game</button>
+    </div>
+    <div id="statusMessage"></div>
+    <div id="playerSymbol"></div>
+    <div id="gameMessage" class="message"></div>
     <div id="game">
         <div class="cell" data-index="0"></div>
         <div class="cell" data-index="1"></div>
@@ -69,18 +97,6 @@
         <div class="cell" data-index="7"></div>
         <div class="cell" data-index="8"></div>
     </div>
-    <div id="controls">
-        <button id="createGame">Create Game</button>
-        <input type="text" id="joinGameId" placeholder="Enter Game ID">
-        <button id="joinGame">Join Game</button>
-    </div>
-    <div id="gameIdContainer" style="display: none;">
-        <span id="gameId"></span>
-        <button id="copyButton">Copy</button>
-    </div>
-    <div id="statusMessage"></div>
-    <div id="playerSymbol"></div>
-    <div id="gameMessage" class="message"></div>
 
     <script>
         document.addEventListener('DOMContentLoaded', (event) => {
@@ -88,18 +104,21 @@
             let conn;
             let myTurn = false;
             let symbol;
+            let hardMode = false;
+            let moveTimer;
             const cells = document.querySelectorAll('.cell');
             const board = Array(9).fill(null);
             const statusMessage = document.getElementById('statusMessage');
             const playerSymbol = document.getElementById('playerSymbol');
             const gameMessage = document.getElementById('gameMessage');
 
+            // Function to create a new game
             document.getElementById('createGame').addEventListener('click', () => {
                 peer = new Peer();
                 statusMessage.textContent = 'Waiting for your friend...';
                 peer.on('open', (id) => {
-                    document.getElementById('gameId').textContent = id;
-                    document.getElementById('gameIdContainer').style.display = 'block';
+                    document.getElementById('gameId').value = id;
+                    document.getElementById('gameIdContainer').style.display = 'flex';
                     symbol = 'X';
                     myTurn = true;
                     playerSymbol.textContent = 'You are X';
@@ -122,6 +141,7 @@
                 });
             });
 
+            // Function to join an existing game
             document.getElementById('joinGame').addEventListener('click', () => {
                 const gameId = document.getElementById('joinGameId').value;
                 peer = new Peer();
@@ -149,15 +169,32 @@
                 });
             });
 
+            // Copy game ID to clipboard
             document.getElementById('copyButton').addEventListener('click', () => {
-                const gameId = document.getElementById('gameId').textContent;
+                const gameId = document.getElementById('gameId').value;
                 navigator.clipboard.writeText(gameId).then(() => {
-                    alert('Game ID copied to clipboard');
+                    statusMessage.textContent = 'Copied!';
+                    setTimeout(() => {
+                        statusMessage.textContent = 'Waiting for your friend...';
+                    }, 2000);
                 }).catch(err => {
                     console.error('Error copying Game ID: ', err);
                 });
             });
 
+            // Set game mode to basic
+            document.getElementById('basicMode').addEventListener('click', () => {
+                hardMode = false;
+                console.log('Basic Mode selected');
+            });
+
+            // Set game mode to hard
+            document.getElementById('hardMode').addEventListener('click', () => {
+                hardMode = true;
+                console.log('Hard Mode selected');
+            });
+
+            // Set up connection for data exchange
             function setupConnection() {
                 conn.on('data', (data) => {
                     if (data.type === 'move') {
@@ -179,11 +216,15 @@
                             conn.send({ type: 'move', index: index, symbol: symbol });
                             checkWinner();
                             console.log('Sent move:', { type: 'move', index: index, symbol: symbol });
+                            if (hardMode) {
+                                startMoveTimer();
+                            }
                         }
                     });
                 });
             }
 
+            // Check for a winner or draw
             function checkWinner() {
                 const winningCombinations = [
                     [0, 1, 2],
@@ -200,22 +241,57 @@
                     const [a, b, c] = combination;
                     if (board[a] && board[a] === board[b] && board[a] === board[c]) {
                         gameMessage.textContent = `Player ${board[a]} wins!`;
-                        setTimeout(resetGame, 3000);
+                        highlightWinningCells([a, b, c]);
+                        setTimeout(() => resetGame(hardMode), 10000);
                         return;
                     }
                 }
 
                 if (board.every(cell => cell)) {
                     gameMessage.textContent = 'Draw!';
-                    setTimeout(resetGame, 3000);
+                    setTimeout(() => resetGame(hardMode), 10000);
                 }
             }
 
-            function resetGame() {
+            // Highlight winning cells
+            function highlightWinningCells(indices) {
+                indices.forEach(index => {
+                    cells[index].classList.add('win-cell');
+                });
+            }
+
+            // Start move timer for hard mode
+            function startMoveTimer() {
+                clearInterval(moveTimer);
+                moveTimer = setTimeout(() => {
+                    if (myTurn) {
+                        const emptyCells = Array.from(cells).filter(cell => !cell.textContent);
+                        const randomIndex = Math.floor(Math.random() * emptyCells.length);
+                        const index = parseInt(emptyCells[randomIndex].getAttribute('data-index'));
+                        board[index] = symbol;
+                        cells[index].textContent = symbol;
+                        myTurn = false;
+                        conn.send({ type: 'move', index: index, symbol: symbol });
+                        checkWinner();
+                        console.log('Sent move automatically:', { type: 'move', index: index, symbol: symbol });
+                    }
+                }, 5000);
+            }
+
+            // Reset the game
+            function resetGame(hardMode) {
                 board.fill(null);
-                cells.forEach(cell => cell.textContent = '');
+                cells.forEach(cell => {
+                    cell.textContent = '';
+                    cell.classList.remove('win-cell');
+                });
                 gameMessage.textContent = '';
                 myTurn = symbol === 'X';
+                if (hardMode) {
+                    symbol = symbol === 'X' ? 'O' : 'X';
+                    playerSymbol.textContent = `You are ${symbol}`;
+                }
+                clearInterval(moveTimer);
             }
         });
     </script>
