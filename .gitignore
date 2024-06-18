@@ -1,0 +1,17 @@
+# Ignore Mac system files
+.DS_Store
+
+# Ignore Node.js dependencies
+node_modules/
+
+# Ignore temporary files
+*.log
+*.tmp
+
+# Ignore editor and IDE files
+.vscode/
+.idea/
+*.swp
+
+# Ignore GitHub Pages build output
+docs/
