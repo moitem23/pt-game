@@ -67,9 +67,8 @@
             color: white;
         }
     </style>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/peerjs/1.3.1/peerjs.min.js"></script>
 </head>
-<body> G1.6
+<body> G1.7
     <div id="controls">
     <button id="createGame">Create Game</button>
     <div id="gameMode" style="display: none;">
@@ -99,209 +98,233 @@
         <div class="cell" data-index="8"></div>
     </div>
 
-    <script>
-   document.addEventListener('DOMContentLoaded', (event) => {
-    let peer;
-    let conn;
-    let myTurn = false;
-    let symbol;
-    let hardMode = false;
-    let round = 0;
-    const cells = document.querySelectorAll('.cell');
-    const board = Array(9).fill(null);
-    const statusMessage = document.getElementById('statusMessage');
-    const playerSymbol = document.getElementById('playerSymbol');
-    const gameMessage = document.getElementById('gameMessage');
+<script src="https://cdn.jsdelivr.net/npm/peerjs@1.3.1/dist/peerjs.min.js"></script>
+<script>
+    document.addEventListener('DOMContentLoaded', (event) => {
+        let peer;
+        let conn;
+        let myTurn = false;
+        let symbol;
+        let hardMode = false;
+        let round = 0;
+        const cells = document.querySelectorAll('.cell');
+        const board = Array(9).fill(null);
+        const statusMessage = document.getElementById('statusMessage');
+        const playerSymbol = document.getElementById('playerSymbol');
+        const gameMessage = document.getElementById('gameMessage');
 
-    // Function to create a new game
-    document.getElementById('createGame').addEventListener('click', () => {
-        peer = new Peer();
-        statusMessage.textContent = 'Waiting for your friend...';
-        document.getElementById('gameMode').style.display = 'flex'; // Display mood buttons
-        document.getElementById('joinGameId').value = ''; // Clear join game ID input
-        document.getElementById('gameIdContainer').style.display = 'none'; // Hide game ID until created
-        peer.on('open', (id) => {
-            document.getElementById('gameId').value = id;
-            document.getElementById('gameIdContainer').style.display = 'flex'; // Display game ID after creation
-            symbol = 'X';
-            myTurn = true;
-            playerSymbol.textContent = 'You are X';
-            console.log('Peer ID: ', id);
-        });
-
-        peer.on('connection', (connection) => {
-            conn = connection;
-            setupConnection();
-            statusMessage.textContent = 'Friend connected, now you can start the game';
-            console.log('Connection established with second player.');
-        });
-
-        peer.on('disconnected', () => {
-            console.log('Disconnected from peer.');
-        });
-
-        peer.on('error', (err) => {
-            console.error('Peer error:', err);
-        });
-    });
-
-    // Function to join an existing game
-    document.getElementById('joinGame').addEventListener('click', () => {
-        const gameId = document.getElementById('joinGameId').value;
-        peer = new Peer();
-        peer.on('open', () => {
-            conn = peer.connect(gameId);
-            conn.on('open', () => {
-                setupConnection();
-                symbol = 'O';
-                statusMessage.textContent = 'Connected to game, you can start playing';
-                playerSymbol.textContent = 'You are O';
-                console.log('Connected to game with ID: ', gameId);
+        // Function to create a new game
+        document.getElementById('createGame').addEventListener('click', () => {
+            peer = new Peer();
+            statusMessage.textContent = 'Waiting for your friend...';
+            document.getElementById('gameMode').style.display = 'flex'; // Display mood buttons
+            document.getElementById('joinGameId').value = ''; // Clear join game ID input
+            document.getElementById('gameIdContainer').style.display = 'none'; // Hide game ID until created
+            peer.on('open', (id) => {
+                document.getElementById('gameId').value = id;
+                document.getElementById('gameIdContainer').style.display = 'flex'; // Display game ID after creation
+                symbol = 'X';
+                myTurn = true;
+                playerSymbol.textContent = 'You are X';
+                console.log('Peer ID: ', id);
             });
 
-            conn.on('disconnected', () => {
+            peer.on('connection', (connection) => {
+                conn = connection;
+                setupConnection();
+                statusMessage.textContent = 'Friend connected, now you can start the game';
+                console.log('Connection established with second player.');
+            });
+
+            peer.on('disconnected', () => {
                 console.log('Disconnected from peer.');
             });
 
-            conn.on('error', (err) => {
-                console.error('Connection error:', err);
+            peer.on('error', (err) => {
+                console.error('Peer error:', err);
             });
         });
 
-        peer.on('error', (err) => {
-            console.error('Peer error:', err);
-        });
-    });
+        // Function to join an existing game
+        document.getElementById('joinGame').addEventListener('click', () => {
+            const gameId = document.getElementById('joinGameId').value;
+            peer = new Peer();
+            peer.on('open', () => {
+                conn = peer.connect(gameId);
+                conn.on('open', () => {
+                    setupConnection();
+                    symbol = 'O';
+                    statusMessage.textContent = 'Connected to game, you can start playing';
+                    playerSymbol.textContent = 'You are O';
+                    console.log('Connected to game with ID: ', gameId);
+                });
 
-    // Copy game ID to clipboard
-    document.getElementById('copyButton').addEventListener('click', () => {
-        const gameId = document.getElementById('gameId').value;
-        navigator.clipboard.writeText(gameId).then(() => {
-            statusMessage.textContent = 'Copied!';
-            setTimeout(() => {
-                statusMessage.textContent = '';
-            }, 2000);
-        }).catch(err => {
-            console.error('Error copying Game ID: ', err);
-        });
-    });
+                conn.on('disconnected', () => {
+                    console.log('Disconnected from peer.');
+                });
 
-    // Set game mode to basic
-    document.getElementById('basicMode').addEventListener('click', () => {
-        hardMode = false;
-        console.log('Basic Mode selected');
-        startGame();
-    });
+                conn.on('error', (err) => {
+                    console.error('Connection error:', err);
+                });
+            });
 
-    // Set game mode to hard
-    document.getElementById('hardMode').addEventListener('click', () => {
-        hardMode = true;
-        console.log('Hard Mode selected');
-        startGame();
-    });
-
-    // Start the game
-    function startGame() {
-        document.getElementById('gameMode').style.display = 'none';
-        if (hardMode) {
-            if (symbol === 'X') {
-                myTurn = true;
-            } else {
-                myTurn = false;
-            }
-        } else {
-            myTurn = symbol === 'X';
-        }
-        updateStatusMessage();
-    }
-
-    // Set up connection for data exchange
-    function setupConnection() {
-        conn.on('data', (data) => {
-            if (data.type === 'move') {
-                board[data.index] = data.symbol;
-                cells[data.index].textContent = data.symbol;
-                myTurn = true;
-                checkWinner();
-            } else if (data.type === 'switchSymbol') {
-                symbol = data.symbol === 'X' ? 'O' : 'X';
-                round = data.round;
-                myTurn = symbol === 'X';
-                playerSymbol.textContent = `You are ${symbol}`;
-                updateStatusMessage();
-            }
+            peer.on('error', (err) => {
+                console.error('Peer error:', err);
+            });
         });
 
-        cells.forEach(cell => {
-            cell.addEventListener('click', () => {
-                if (myTurn && !cell.textContent) {
-                    const index = cell.getAttribute('data-index');
-                    board[index] = symbol;
-                    cell.textContent = symbol;
+        // Copy game ID to clipboard
+        document.getElementById('copyButton').addEventListener('click', () => {
+            const gameId = document.getElementById('gameId').value;
+            navigator.clipboard.writeText(gameId).then(() => {
+                statusMessage.textContent = 'Copied!';
+                setTimeout(() => {
+                    statusMessage.textContent = '';
+                }, 2000);
+            }).catch(err => {
+                console.error('Error copying Game ID: ', err);
+            });
+        });
+
+        // Set game mode to basic
+        document.getElementById('basicMode').addEventListener('click', () => {
+            hardMode = false;
+            console.log('Basic Mode selected');
+            startGame();
+        });
+
+        // Set game mode to hard
+        document.getElementById('hardMode').addEventListener('click', () => {
+            hardMode = true;
+            console.log('Hard Mode selected');
+            startGame();
+        });
+
+        // Start the game
+        function startGame() {
+            document.getElementById('gameMode').style.display = 'none';
+            if (hardMode) {
+                if (symbol === 'X') {
+                    myTurn = true;
+                } else {
                     myTurn = false;
-                    conn.send({ type: 'move', index: index, symbol: symbol });
+                }
+            } else {
+                myTurn = symbol === 'X';
+            }
+            updateStatusMessage();
+        }
+
+        // Set up connection for data exchange
+        function setupConnection() {
+            conn.on('data', (data) => {
+                if (data.type === 'move') {
+                    board[data.index] = data.symbol;
+                    cells[data.index].textContent = data.symbol;
+                    myTurn = true;
                     checkWinner();
-                    updateStatusMessage(); // Update status after the move
+                } else if (data.type === 'switchSymbol') {
+                    symbol = data.symbol === 'X' ? 'O' : 'X';
+                    round = data.round;
+                    myTurn = symbol === 'X';
+                    playerSymbol.textContent = `You are ${symbol}`;
+                    updateStatusMessage();
                 }
             });
-        });
-    }
 
-    // Check for a winner or draw
-    function checkWinner() {
-        const winningCombinations = [
-            [0, 1, 2],
-            [3, 4, 5],
-            [6, 7, 8],
-            [0, 3, 6],
-            [1, 4, 7],
-            [2, 5, 8],
-            [0, 4, 8],
-            [2, 4, 6]
-        ];
+            cells.forEach(cell => {
+                cell.addEventListener('click', () => {
+                    if (myTurn && !cell.textContent) {
+                        const index = cell.getAttribute('data-index');
+                        board[index] = symbol;
+                        cell.textContent = symbol;
+                        myTurn = false;
+                        conn.send({ type: 'move', index: index, symbol: symbol });
+                        checkWinner();
+                        updateStatusMessage(); // Update status after the move
+                    }
+                });
+            });
+        }
 
-        for (const combination of winningCombinations) {
-            const [a, b, c] = combination;
-            if (board[a] && board[a] === board[b] && board[a] === board[c]) {
-                gameMessage.textContent = `Player ${board[a]} wins!`;
-                highlightWinningCells([a, b, c]);
+        // Reset the game
+        function resetGame(hardMode) {
+            board.fill(null);
+            cells.forEach(cell => {
+                cell.textContent = '';
+                cell.classList.remove('win-cell');
+            });
+            gameMessage.textContent = '';
+            round++;
+            if (hardMode) {
+                if (round % 2 === 0) {
+                    symbol = 'X';
+                } else {
+                    symbol = 'O';
+                }
+                myTurn = symbol === 'X';
+                conn.send({ type: 'switchSymbol', symbol: symbol, round: round });
+                updateStatusMessage();
+            } else {
+                myTurn = symbol === 'X';
+                updateStatusMessage();
+            }
+        }
+
+        // Check for a winner or draw
+        function checkWinner() {
+            const winningCombinations = [
+                [0, 1, 2],
+                [3, 4, 5],
+                [6, 7, 8],
+                [0, 3, 6],
+                [1, 4, 7],
+                [2, 5, 8],
+                [0, 4, 8],
+                [2, 4, 6]
+            ];
+
+            for (const combination of winningCombinations) {
+                const [a, b, c] = combination;
+                if (board[a] && board[a] === board[b] && board[a] === board[c]) {
+                    gameMessage.textContent = `Player ${board[a]} wins!`;
+                    highlightWinningCells([a, b, c]);
+                    setTimeout(() => resetGame(hardMode), 10000);
+                    return;
+                }
+            }
+
+            if (board.every(cell => cell)) {
+                gameMessage.textContent = 'Draw!';
                 setTimeout(() => resetGame(hardMode), 10000);
-                return;
             }
         }
 
-        if (board.every(cell => cell)) {
-            gameMessage.textContent = 'Draw!';
-            setTimeout(() => resetGame(hardMode), 10000);
+        // Highlight winning cells
+        function highlightWinningCells(indices) {
+            indices.forEach(index => {
+                cells[index].classList.add('win-cell');
+            });
         }
-    }
 
-    // Highlight winning cells
-    function highlightWinningCells(indices) {
-        indices.forEach(index => {
-            cells[index].classList.add('win-cell');
-        });
-    }
-
-    // Update status message based on the current state
-    function updateStatusMessage() {
-        if (myTurn) {
-            if (symbol === 'X') {
-                statusMessage.textContent = 'Your turn (X) - Please start playing';
+        // Update status message based on the current state
+        function updateStatusMessage() {
+            if (myTurn) {
+                if (symbol === 'X') {
+                    statusMessage.textContent = 'Your turn (X) - Please start playing';
+                } else {
+                    statusMessage.textContent = 'Your turn (O) - Waiting for X to select';
+                }
             } else {
-                statusMessage.textContent = 'Your turn (O) - Waiting for X to select';
-            }
-        } else {
-            if (symbol === 'X') {
-                statusMessage.textContent = 'Waiting for your friend\'s move (O)';
-            } else {
-                statusMessage.textContent = 'Waiting for your friend\'s move (X)';
+                if (symbol === 'X') {
+                    statusMessage.textContent = 'Waiting for your friend\'s move (O)';
+                } else {
+                    statusMessage.textContent = 'Waiting for your friend\'s move (X)';
+                }
             }
         }
-    }
-});
+    });
+</script>
 
-
-    </script>
 </body>
 </html>
