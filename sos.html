@@ -73,13 +73,13 @@
     </style>
 </head>
 <body>
-    <h1>SOS Game 1.1</h1>
+    <h1>SOS Game 1.2</h1>
     <div id="game">
         <table id="board"></table>
     </div>
     <div>
         <input type="text" id="peer-id-input" placeholder="Enter Game ID to connect">
-        <button onclick="connectPeer()">Connect</button>
+        <button onclick="connectPeer()">Join</button>
     </div>
     <div id="messages">
         <span id="peer-id"></span>
@@ -91,10 +91,10 @@
         peer.on('open', (id) => {
             const peerIdElement = document.getElementById('peer-id');
             peerIdElement.innerText = `Your Game ID: ${id}`;
-            document.getElementById('peer-id-input').value = id;
             peerIdElement.addEventListener('click', () => {
-                navigator.clipboard.writeText(id);
-                alert('Game ID copied to clipboard');
+                navigator.clipboard.writeText(id).then(() => {
+                    displayMessage('Game ID copied to clipboard');
+                });
             });
         });
 
@@ -129,7 +129,6 @@
                 cell.innerHTML = `
                     <div class="dropdown">
                         <select onchange="selectLetter(event, '${cell.id}')">
-                            <option value="">Select</option>
                             <option value="S">S</option>
                             <option value="O">O</option>
                         </select>
@@ -148,9 +147,18 @@
             const letter = event.target.value;
             const cell = document.getElementById(cellId);
             cell.textContent = letter;
+            const dropdown = cell.querySelector('.dropdown');
+            dropdown.style.display = 'none';
             if (conn) {
                 conn.send({ cellId: cell.id, letter: letter });
             }
+        }
+
+        function displayMessage(message) {
+            const messages = document.getElementById('messages');
+            const messageElement = document.createElement('div');
+            messageElement.innerText = message;
+            messages.appendChild(messageElement);
         }
     </script>
 </body>
