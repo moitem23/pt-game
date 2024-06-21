@@ -25,36 +25,10 @@
             text-align: center;
             font-size: 24px;
             cursor: pointer;
-            position: relative;
-        }
-
-        .dropdown {
-            position: absolute;
-            display: none;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-        }
-
-        .dropdown select {
-            width: 100%;
-            height: 100%;
-            font-size: 24px;
-            text-align: center;
-            background: transparent;
-            border: none;
-            appearance: none;
-            cursor: pointer;
         }
 
         #messages {
             margin-top: 20px;
-        }
-
-        #status {
-            margin-top: 10px;
-            padding: 5px;
         }
 
         #peer-id {
@@ -76,85 +50,85 @@
             margin-top: 10px;
         }
 
-        .status-green {
+        .connected {
             color: green;
         }
 
-        .status-red {
+        .disconnected {
             color: red;
         }
     </style>
 </head>
 <body>
-    <h1>SOS Game 1.4</h1>
+    <h1>SOS Game 1.4.1</h1>
     <div id="game">
         <table id="board"></table>
     </div>
     <div>
         <input type="text" id="peer-id-input" placeholder="Enter Game ID to connect">
-        <button onclick="connectPeer()">Connect</button>
+        <button onclick="connectPeer()">Join</button>
     </div>
     <div id="messages">
         <span id="peer-id"></span>
-        <div id="status" class="status-green">Waiting For Your Friend...</div>
+        <div id="status">Waiting For Your Friend...</div>
     </div>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/peerjs/1.3.2/peerjs.min.js"></script>
     <script>
         const peer = new Peer();
+        let isFirstPlayer = false;
+        let playerLetter = '';
+        let opponentLetter = '';
+        let conn;
 
         peer.on('open', (id) => {
             const peerIdElement = document.getElementById('peer-id');
             peerIdElement.innerText = `Your Game ID: ${id}`;
-            document.getElementById('peer-id-input').value = id;
             peerIdElement.addEventListener('click', () => {
-                navigator.clipboard.writeText(id);
-                alert('Game ID copied to clipboard');
+                navigator.clipboard.writeText(id).then(() => {
+                    displayMessage('Game ID copied to clipboard', false);
+                });
             });
             console.log("Waiting For Your Friend...");
         });
 
-        let conn;
+        peer.on('connection', (connection) => {
+            conn = connection;
+            isFirstPlayer = true;
+            setupConnection();
+            console.log("Your are connected with friend");
+        });
 
         function connectPeer() {
             const peerId = document.getElementById('peer-id-input').value;
             conn = peer.connect(peerId);
             setupConnection();
+            console.log("Your are connected with friend");
         }
 
-        peer.on('connection', (connection) => {
-            conn = connection;
-            setupConnection();
-            displayStatus("You are connected with a friend", "status-green");
-            console.log("You are connected with a friend");
-        });
-
-        peer.on('disconnected', () => {
-            displayStatus("You are disconnected with a friend", "status-red");
-            console.log("You are disconnected with a friend");
-        });
-
         function setupConnection() {
+            conn.on('open', () => {
+                displayMessage('You are connected with friend', true);
+                document.getElementById('status').classList.add('connected');
+                document.getElementById('status').classList.remove('disconnected');
+            });
+
             conn.on('data', (data) => {
-                const cell = document.getElementById(data.cellId);
-                cell.textContent = data.letter;
+                if (data.type === 'letterSelection') {
+                    opponentLetter = data.letter;
+                    playerLetter = opponentLetter === 'S' ? 'O' : 'S';
+                    displayMessage(`You are ${playerLetter}`, false);
+                } else {
+                    const cell = document.getElementById(data.cellId);
+                    cell.textContent = data.letter;
+                }
             });
 
             conn.on('close', () => {
-                displayStatus("You are disconnected with a friend", "status-red");
-                console.log("You are disconnected with a friend");
+                displayMessage('You are disconnected with friend', false, true);
+                document.getElementById('status').classList.add('disconnected');
+                document.getElementById('status').classList.remove('connected');
+                console.log("You are disconnected with friend");
             });
-
-            conn.on('error', (err) => {
-                console.error("Connection error: ", err);
-                displayStatus("You are disconnected with a friend", "status-red");
-                console.log("You are disconnected with a friend");
-            });
-        }
-
-        function displayStatus(message, className) {
-            const statusElement = document.getElementById('status');
-            statusElement.innerText = message;
-            statusElement.className = className;
         }
 
         const boardSize = 10; // 10x10 grid
@@ -165,31 +139,39 @@
             for (let j = 0; j < boardSize; j++) {
                 const cell = row.insertCell();
                 cell.id = `cell-${i}-${j}`;
-                cell.innerHTML = `
-                    <div class="dropdown">
-                        <select onchange="selectLetter(event, '${cell.id}')">
-                            <option value="">Select</option>
-                            <option value="S">S</option>
-                            <option value="O">O</option>
-                        </select>
-                    </div>
-                `;
-                cell.addEventListener('click', () => showDropdown(cell));
+                cell.addEventListener('click', () => cellClicked(cell));
             }
         }
 
-        function showDropdown(cell) {
-            const dropdown = cell.querySelector('.dropdown');
-            dropdown.style.display = 'block';
+        function selectLetter(letter) {
+            playerLetter = letter;
+            opponentLetter = letter === 'S' ? 'O' : 'S';
+            displayMessage(`You are ${playerLetter}`, false);
+            if (isFirstPlayer && conn) {
+                conn.send({ type: 'letterSelection', letter: playerLetter });
+            }
         }
 
-        function selectLetter(event, cellId) {
-            const letter = event.target.value;
-            const cell = document.getElementById(cellId);
-            cell.textContent = letter;
-            if (conn) {
-                conn.send({ cellId: cell.id, letter: letter });
+        function cellClicked(cell) {
+            if (cell.textContent === '') {
+                cell.textContent = playerLetter;
+                if (conn) {
+                    conn.send({ cellId: cell.id, letter: playerLetter });
+                }
             }
+        }
+
+        function displayMessage(message, isSuccess = false, isError = false) {
+            const messages = document.getElementById('messages');
+            const messageElement = document.createElement('div');
+            messageElement.innerText = message;
+            if (isSuccess) {
+                messageElement.classList.add('connected');
+            } else if (isError) {
+                messageElement.classList.add('disconnected');
+            }
+            messages.appendChild(messageElement);
+            console.log(message);
         }
     </script>
 </body>
